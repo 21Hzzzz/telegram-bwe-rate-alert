@@ -59,9 +59,13 @@ cp -a "${SOURCE_DIR}/source/." "${APP_DIR}/"
 python3 -m venv "${APP_DIR}/venv"
 "${APP_DIR}/venv/bin/pip" install --no-cache-dir --disable-pip-version-check --no-compile -r "${APP_DIR}/requirements.txt"
 
-"${APP_DIR}/venv/bin/python" "${APP_DIR}/app.py" configure \
-  --config "${CONFIG_DIR}/config.json" \
-  --session "${STATE_DIR}/telegram" </dev/tty
+if [[ "${RECONFIGURE:-0}" == "1" || ! -f "${CONFIG_DIR}/config.json" || ! -f "${STATE_DIR}/telegram.session" ]]; then
+  "${APP_DIR}/venv/bin/python" "${APP_DIR}/app.py" configure \
+    --config "${CONFIG_DIR}/config.json" \
+    --session "${STATE_DIR}/telegram" </dev/tty
+else
+  echo "Existing Telegram session and configuration found; preserving them for this upgrade."
+fi
 
 install -m 0644 "${APP_DIR}/telegram-bwe-rate-alert.service" "/etc/systemd/system/${SERVICE}.service"
 systemctl daemon-reload

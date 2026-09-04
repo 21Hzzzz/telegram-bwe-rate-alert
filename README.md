@@ -12,6 +12,12 @@ curl -fsSL https://raw.githubusercontent.com/21Hzzzz/telegram-bwe-rate-alert/mai
 
 安装器会从当前终端读取交互输入，因此可安全使用上述 `curl | bash` 命令。
 
+再次执行安装命令会升级程序并保留现有 Telegram session 与配置，不会要求重新登录。需要更换 Telegram 账号、API 信息或 webhook 时，显式重配：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/21Hzzzz/telegram-bwe-rate-alert/main/install.sh | RECONFIGURE=1 bash
+```
+
 安装过程会交互式要求输入：Telegram 手机号、[API ID 与 API Hash](https://my.telegram.org/apps)、告警 webhook 完整 URL、Telegram 验证码；如账户启用两步验证，还会安全地要求输入密码。
 
 输入 webhook 后，安装器会立即以 HTTP GET 探测它；只有收到成功响应才会继续。服务每次启动也会再次检查并写入日志。由于 webhook 的协议是“访问即告警”，这两次检查都可能产生测试通知。
