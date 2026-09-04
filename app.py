@@ -17,7 +17,13 @@ from getpass import getpass
 from pathlib import Path
 
 from telethon import TelegramClient, events
-from telethon.errors import SessionPasswordNeededError
+from telethon.errors import (
+    PasswordHashInvalidError,
+    PhoneCodeExpiredError,
+    PhoneCodeInvalidError,
+    RPCError,
+    SessionPasswordNeededError,
+)
 
 from rate_monitor import BurstDetector
 
@@ -47,18 +53,31 @@ def validate_webhook(value: str) -> str:
 
 
 def prompt_configuration() -> dict[str, object]:
-    phone = input("Telegram phone number (include country code, e.g. +8613800000000): ").strip()
-    if not phone:
-        raise ValueError("Telegram phone number cannot be empty")
-    api_id_text = input("Telegram API ID: ").strip()
-    try:
-        api_id = int(api_id_text)
-    except ValueError as error:
-        raise ValueError("Telegram API ID must be an integer") from error
-    api_hash = getpass("Telegram API Hash: ").strip()
-    if not api_hash:
-        raise ValueError("Telegram API Hash cannot be empty")
-    webhook_url = validate_webhook(input("Alert webhook URL (HTTP GET): "))
+    while True:
+        phone = input("Telegram phone number (include country code, e.g. +8613800000000): ").strip()
+        if phone:
+            break
+        print("Phone number cannot be empty. Please try again.")
+    while True:
+        api_id_text = input("Telegram API ID: ").strip()
+        try:
+            api_id = int(api_id_text)
+            if api_id > 0:
+                break
+        except ValueError:
+            pass
+        print("API ID must be a positive integer. Please try again.")
+    while True:
+        api_hash = getpass("Telegram API Hash: ").strip()
+        if api_hash:
+            break
+        print("API Hash cannot be empty. Please try again.")
+    while True:
+        try:
+            webhook_url = validate_webhook(input("Alert webhook URL (HTTP GET): "))
+            break
+        except ValueError as error:
+            print(f"{error}. Please try again.")
     return {"api_id": api_id, "api_hash": api_hash, "phone": phone, "webhook_url": webhook_url}
 
 
@@ -69,26 +88,53 @@ def write_config(path: Path, config: dict[str, object]) -> None:
 
 
 async def configure(config_path: Path, session_path: Path) -> None:
-    config = prompt_configuration()
     session_path.parent.mkdir(parents=True, exist_ok=True)
-    client = TelegramClient(str(session_path), int(config["api_id"]), str(config["api_hash"]))
-    await client.connect()
-    try:
-        if not await client.is_user_authorized():
-            await client.send_code_request(str(config["phone"]))
-            code = input("Telegram verification code: ").strip()
-            try:
-                await client.sign_in(phone=str(config["phone"]), code=code)
-            except SessionPasswordNeededError:
-                password = getpass("Telegram two-step verification password: ")
-                await client.sign_in(password=password)
-        await client.get_entity(TARGET_CHANNEL)
-    finally:
-        await client.disconnect()
-    write_config(config_path, config)
-    for file in session_path.parent.glob(session_path.name + "*"):
-        os.chmod(file, 0o600)
-    print(f"Telegram session saved. Ensure this account can access {TARGET_CHANNEL}.")
+    while True:
+        config = prompt_configuration()
+        client = TelegramClient(str(session_path), int(config["api_id"]), str(config["api_hash"]))
+        try:
+            await client.connect()
+            if not await client.is_user_authorized():
+                await client.send_code_request(str(config["phone"]))
+                for attempt in range(1, 4):
+                    code = input(f"Telegram verification code (attempt {attempt}/3): ").strip()
+                    if not code:
+                        print("Verification code cannot be empty. Please try again.")
+                        continue
+                    try:
+                        await client.sign_in(phone=str(config["phone"]), code=code)
+                        break
+                    except PhoneCodeInvalidError:
+                        print("Incorrect verification code. Please try again.")
+                    except PhoneCodeExpiredError:
+                        print("Verification code expired; a new code will be requested.")
+                        break
+                    except SessionPasswordNeededError:
+                        for password_attempt in range(1, 4):
+                            password = getpass(f"Telegram two-step verification password (attempt {password_attempt}/3): ")
+                            if not password:
+                                print("Password cannot be empty. Please try again.")
+                                continue
+                            try:
+                                await client.sign_in(password=password)
+                                break
+                            except PasswordHashInvalidError:
+                                print("Incorrect two-step verification password. Please try again.")
+                        break
+                if not await client.is_user_authorized():
+                    print("Telegram login was not completed; please review the details and try again.")
+                    continue
+            await client.get_entity(TARGET_CHANNEL)
+        except RPCError as error:
+            print(f"Telegram rejected the login or channel check: {error}. Please try again.")
+            continue
+        finally:
+            await client.disconnect()
+        write_config(config_path, config)
+        for file in session_path.parent.glob(session_path.name + "*"):
+            os.chmod(file, 0o600)
+        print(f"Telegram session saved. Ensure this account can access {TARGET_CHANNEL}.")
+        return
 
 
 def send_webhook(url: str) -> None:
