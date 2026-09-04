@@ -91,6 +91,10 @@ async def configure(config_path: Path, session_path: Path) -> None:
     session_path.parent.mkdir(parents=True, exist_ok=True)
     while True:
         config = prompt_configuration()
+        print("Checking webhook with one HTTP GET request (this may create a test notification)...")
+        if not await asyncio.to_thread(verify_webhook, str(config["webhook_url"]), "Webhook check"):
+            print("Webhook check failed. Please enter the configuration again.")
+            continue
         client = TelegramClient(str(session_path), int(config["api_id"]), str(config["api_hash"]))
         try:
             await client.connect()
@@ -137,13 +141,21 @@ async def configure(config_path: Path, session_path: Path) -> None:
         return
 
 
-def send_webhook(url: str) -> None:
+def verify_webhook(url: str, label: str) -> bool:
     request = urllib.request.Request(url, method="GET", headers={"User-Agent": "telegram-bwe-rate-alert/1.0"})
     try:
         with urllib.request.urlopen(request, timeout=10) as response:
-            LOG.info("Alert webhook returned HTTP %s", response.status)
+            if 200 <= response.status < 400:
+                LOG.info("%s succeeded (HTTP %s)", label, response.status)
+                return True
+            LOG.error("%s returned unsuccessful HTTP %s", label, response.status)
     except (urllib.error.URLError, TimeoutError, OSError) as error:
-        LOG.error("Alert webhook request failed: %s", error)
+        LOG.error("%s failed: %s", label, error)
+    return False
+
+
+def send_webhook(url: str) -> None:
+    verify_webhook(url, "Alert webhook request")
 
 
 async def run(config_path: Path, session_path: Path) -> None:
@@ -160,6 +172,8 @@ async def run(config_path: Path, session_path: Path) -> None:
     await client.start()
     if not await client.is_user_authorized():
         raise RuntimeError("Telegram session is not authorized; run the installer again")
+    if not await asyncio.to_thread(verify_webhook, str(config["webhook_url"]), "Startup webhook check"):
+        LOG.warning("Webhook is unavailable at startup; monitoring will continue and retry on the next alert")
     LOG.info("Monitoring %s", TARGET_CHANNEL)
     await client.run_until_disconnected()
 

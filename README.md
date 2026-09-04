@@ -14,6 +14,8 @@ curl -fsSL https://raw.githubusercontent.com/21Hzzzz/telegram-bwe-rate-alert/mai
 
 安装过程会交互式要求输入：Telegram 手机号、[API ID 与 API Hash](https://my.telegram.org/apps)、告警 webhook 完整 URL、Telegram 验证码；如账户启用两步验证，还会安全地要求输入密码。
 
+输入 webhook 后，安装器会立即以 HTTP GET 探测它；只有收到成功响应才会继续。服务每次启动也会再次检查并写入日志。由于 webhook 的协议是“访问即告警”，这两次检查都可能产生测试通知。
+
 该 Telegram 账号必须能访问目标频道。安装程序不会自动加入频道。
 
 对于内存小于 768 MiB 且没有至少 256 MiB swap 的服务器，安装器会自动创建并启用一个持久化的 512 MiB `/swapfile`，以避免 Python 依赖安装时触发 OOM。
