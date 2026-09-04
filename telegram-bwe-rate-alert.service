@@ -1,0 +1,20 @@
+[Unit]
+Description=Telegram BWE channel rate alert
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+Group=root
+WorkingDirectory=/opt/telegram-bwe-rate-alert
+ExecStart=/opt/telegram-bwe-rate-alert/venv/bin/python /opt/telegram-bwe-rate-alert/app.py run --config /etc/telegram-bwe-rate-alert/config.json --session /var/lib/telegram-bwe-rate-alert/telegram
+Restart=always
+RestartSec=10
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target
