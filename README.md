@@ -10,6 +10,8 @@
 curl -fsSL https://raw.githubusercontent.com/21Hzzzz/telegram-bwe-rate-alert/main/install.sh | bash
 ```
 
+安装器会从当前终端读取交互输入，因此可安全使用上述 `curl | bash` 命令。
+
 安装过程会交互式要求输入：Telegram 手机号、[API ID 与 API Hash](https://my.telegram.org/apps)、告警 webhook 完整 URL、Telegram 验证码；如账户启用两步验证，还会安全地要求输入密码。
 
 该 Telegram 账号必须能访问目标频道。安装程序不会自动加入频道。

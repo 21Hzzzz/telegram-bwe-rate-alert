@@ -61,7 +61,7 @@ python3 -m venv "${APP_DIR}/venv"
 
 "${APP_DIR}/venv/bin/python" "${APP_DIR}/app.py" configure \
   --config "${CONFIG_DIR}/config.json" \
-  --session "${STATE_DIR}/telegram"
+  --session "${STATE_DIR}/telegram" </dev/tty
 
 install -m 0644 "${APP_DIR}/telegram-bwe-rate-alert.service" "/etc/systemd/system/${SERVICE}.service"
 systemctl daemon-reload
