@@ -14,6 +14,8 @@ curl -fsSL https://raw.githubusercontent.com/21Hzzzz/telegram-bwe-rate-alert/mai
 
 该 Telegram 账号必须能访问目标频道。安装程序不会自动加入频道。
 
+对于内存小于 768 MiB 且没有至少 256 MiB swap 的服务器，安装器会自动创建并启用一个持久化的 512 MiB `/swapfile`，以避免 Python 依赖安装时触发 OOM。
+
 ## 运维命令
 
 ```bash
